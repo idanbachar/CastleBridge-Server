@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <Reference Include="CastleBridge.OnlineLibraries">
-      <HintPath>..\..\..\..\..\..\Desktop\ClassLibrary\CastleBridge.OnlineLibraries\CastleBridge.OnlineLibraries\bin\Debug\netstandard2.0\CastleBridge.OnlineLibraries.dll</HintPath>
+      <HintPath>..\..\..\castlebridge-online-libraries\CastleBridge.OnlineLibraries\CastleBridge.OnlineLibraries\bin\Debug\netstandard2.0\CastleBridge.OnlineLibraries.dll</HintPath>
     </Reference>
   </ItemGroup>
 
