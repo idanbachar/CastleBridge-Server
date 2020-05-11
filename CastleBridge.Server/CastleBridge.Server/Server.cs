@@ -13,7 +13,7 @@ namespace CastleBridge.Server {
 
         private TcpListener Listener;
         private Dictionary<string, Player> Players;
-        private const int ThreadSleep = 50;
+        private const int ThreadSleep = 100;
 
         public Server(string ip, int port) {
 
@@ -22,41 +22,16 @@ namespace CastleBridge.Server {
         }
 
         private void WaitForConnections() {
-
-            NetworkStream netStream = null;
-
+ 
             while (true) {
 
                 TcpClient connectedClient = Listener.AcceptTcpClient();
-
-                netStream = connectedClient.GetStream();
-                byte[] bytes = new byte[1024];
-                netStream.Read(bytes, 0, bytes.Length);
-                object obj = ByteArrayToObject(bytes);
-
-                if (obj is PlayerPacket) {
-
-                    PlayerPacket playerPacket = obj as PlayerPacket;
-
-                    switch (playerPacket.PacketType) {
-                        case PacketType.PlayerJoined:
-
-                            if (!Players.ContainsKey(playerPacket.Name)) {
-                                Players.Add(playerPacket.Name, new Player(playerPacket, connectedClient));
-                                Console.WriteLine(playerPacket.Name + " the " + playerPacket.CharacterName + " has joined to the " + playerPacket.TeamName + " team!");
-
-                                Console.WriteLine("Connected from ip: " + ((IPEndPoint)connectedClient.Client.RemoteEndPoint).Address.ToString());
-                                new Thread(() => ReceiveData(connectedClient)).Start();
-                            }
-                            break;
-                    }
-                }
- 
+                new Thread(() => ReceiveData(connectedClient)).Start();
             }
         }
 
 
-        public byte[] ObjectToByteArray<T>(T obj) {
+        private byte[] ObjectToByteArray<T>(T obj) {
             if (obj == null)
                 return null;
             BinaryFormatter bf = new BinaryFormatter();
@@ -66,7 +41,7 @@ namespace CastleBridge.Server {
             }
         }
 
-        public object ByteArrayToObject(byte[] arrBytes) {
+        private object ByteArrayToObject(byte[] arrBytes) {
             MemoryStream memStream = new MemoryStream();
             BinaryFormatter binForm = new BinaryFormatter();
 
@@ -80,27 +55,37 @@ namespace CastleBridge.Server {
 
 
         private void ReceiveData(TcpClient client) {
-
-            NetworkStream netStream = null;
-
+ 
             while (true) {
 
                 try {
-                    netStream = client.GetStream();
+                    NetworkStream netStream = client.GetStream();
                     byte[] bytes = new byte[1024];
                     netStream.Read(bytes, 0, bytes.Length);
                     object obj = ByteArrayToObject(bytes);
+
 
                     if (obj is PlayerPacket) {
 
                         PlayerPacket playerPacket = obj as PlayerPacket;
 
                         lock (Players) {
-
-                            Players[playerPacket.Name].PlayerPacket = playerPacket;
-                            Players[playerPacket.Name].Client = client;
-                            SendToOtherClients(Players[playerPacket.Name].PlayerPacket);
+                            if (!Players.ContainsKey(playerPacket.Name)) {
+                                Players.Add(playerPacket.Name, new Player(playerPacket, client));
+                                Console.WriteLine(playerPacket.Name + " the " + playerPacket.CharacterName + " has joined to the " + playerPacket.TeamName + " team!");
+                            }
+                            else {
+                                Players[playerPacket.Name].PlayerPacket.CharacterName = playerPacket.CharacterName;
+                                Players[playerPacket.Name].PlayerPacket.Name = playerPacket.Name;
+                                Players[playerPacket.Name].PlayerPacket.Direction = playerPacket.Direction;
+                                Players[playerPacket.Name].PlayerPacket.PacketType = playerPacket.PacketType;
+                                Players[playerPacket.Name].PlayerPacket.PlayerState = playerPacket.PlayerState;
+                                Players[playerPacket.Name].PlayerPacket.CurrentSpeed = playerPacket.CurrentSpeed;
+                                Players[playerPacket.Name].PlayerPacket.CurrentLocation = playerPacket.CurrentLocation;
+                                Players[playerPacket.Name].PlayerPacket.Rectangle = new RectanglePacket(playerPacket.Rectangle.X, playerPacket.Rectangle.Y, playerPacket.Rectangle.Width, playerPacket.Rectangle.Height);
+                            }
                         }
+                        SendToOtherClients(playerPacket.Name);
                     }
 
                 }
@@ -113,49 +98,39 @@ namespace CastleBridge.Server {
 
         }
 
-        private void SendToOtherClients(PlayerPacket currentPlayer) {
+        private void SendToOtherClients(string playerName) {
+ 
+            foreach (KeyValuePair<string, Player> player in Players) {
+                try {
 
-            NetworkStream netStream = null;
-
-            try {
-
-                foreach (KeyValuePair<string, Player> player in Players) {
-
-                    if (player.Value.PlayerPacket.Name == currentPlayer.Name)
+                    if (player.Value.PlayerPacket.Name == playerName)
                         continue;
 
-                    netStream = player.Value.Client.GetStream();
-                    byte[] bytes = ObjectToByteArray(currentPlayer);
+                    NetworkStream netStream = player.Value.Client.GetStream();
+                    byte[] bytes = ObjectToByteArray(Players[playerName].PlayerPacket);
                     netStream.Write(bytes, 0, bytes.Length);
-                    netStream.Flush();
-                    Console.WriteLine("<Server>: Sending " + player.Value.PlayerPacket.Name + "'s data to other players..");
+
+                    //Console.WriteLine("<Server>: Sending " + playerName + "'s data to other players..");
+
                 }
-            }
-            catch (Exception e) {
-                Console.WriteLine(e.Message);
+                catch (Exception e) {
+                    Console.WriteLine(e.Message);
+                }
+
+
             }
 
         }
  
-        private void SendText(TcpClient client, string text) {
-
-            NetworkStream netStream = client.GetStream();
-            byte[] bytes = Encoding.ASCII.GetBytes(text);
-            netStream.Write(bytes, 0, bytes.Length);
-
-        }
 
         public void Start() {
 
             Listener.Start();
-            Console.WriteLine("Server started." +
-                "\n" +
-                "waiting for clients..");
+            Console.WriteLine("Server started.");
+            Console.WriteLine("Waiting for players...");
 
-          new Thread(WaitForConnections).Start();
+            WaitForConnections();
  
-
-           // new Thread(SendToOtherClients).Start();
         }
 
     }
