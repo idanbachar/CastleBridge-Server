@@ -75,14 +75,7 @@ namespace CastleBridge.Server {
                                 Console.WriteLine(playerPacket.Name + " the " + playerPacket.CharacterName + " has joined to the " + playerPacket.TeamName + " team!");
                             }
                             else {
-                                Players[playerPacket.Name].PlayerPacket.CharacterName = playerPacket.CharacterName;
-                                Players[playerPacket.Name].PlayerPacket.Name = playerPacket.Name;
-                                Players[playerPacket.Name].PlayerPacket.Direction = playerPacket.Direction;
-                                Players[playerPacket.Name].PlayerPacket.PacketType = playerPacket.PacketType;
-                                Players[playerPacket.Name].PlayerPacket.PlayerState = playerPacket.PlayerState;
-                                Players[playerPacket.Name].PlayerPacket.CurrentSpeed = playerPacket.CurrentSpeed;
-                                Players[playerPacket.Name].PlayerPacket.CurrentLocation = playerPacket.CurrentLocation;
-                                Players[playerPacket.Name].PlayerPacket.Rectangle = new RectanglePacket(playerPacket.Rectangle.X, playerPacket.Rectangle.Y, playerPacket.Rectangle.Width, playerPacket.Rectangle.Height);
+                                Players[playerPacket.Name].PlayerPacket = playerPacket;
                             }
                         }
                         SendToOtherClients(playerPacket.Name);
