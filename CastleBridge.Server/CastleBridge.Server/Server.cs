@@ -16,14 +16,14 @@ namespace CastleBridge.Server {
         private Dictionary<string, Player> Players;
         private List<MapEntityPacket> MapEntities;
         private const int ThreadSleep = 100;
-        private Random Rnd;
+        private Random Rnd = new Random();
 
         public Server(string ip, int port) {
 
             Listener = new TcpListener(IPAddress.Parse(ip), port);
             Players = new Dictionary<string, Player>();
             MapEntities = new List<MapEntityPacket>();
-            Rnd = new Random();
+
             InitMap();
         }
 
@@ -45,7 +45,7 @@ namespace CastleBridge.Server {
 
         private void GenerateWorldEntity() {
 
-            int x = Rnd.Next(0, 10000);
+            int x = Rnd.Next(150, 10000);
             int y = Rnd.Next(400, 2000);
             MapEntityName entity = (MapEntityName)Rnd.Next(0, 5);
 
@@ -64,6 +64,13 @@ namespace CastleBridge.Server {
                 NetworkStream netStream = null;
                 byte[] bytes = new byte[1024];
                 try {
+
+                    netStream = client.GetStream();
+                    bytes = Encoding.ASCII.GetBytes(MapEntities.Count + "|map_entities_count");
+                    netStream.Write(bytes, 0, bytes.Length);
+
+
+
                     foreach (MapEntityPacket mapEntity in MapEntities) {
 
                         netStream = client.GetStream();
