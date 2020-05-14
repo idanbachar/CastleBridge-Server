@@ -14,49 +14,32 @@ namespace CastleBridge.Server {
 
         private TcpListener Listener;
         private Dictionary<string, Player> Players;
-        private List<MapEntityPacket> MapEntities;
         private const int ThreadSleep = 100;
-        private Random Rnd = new Random();
-
+        private Map Map;
         public Server(string ip, int port) {
 
             Listener = new TcpListener(IPAddress.Parse(ip), port);
             Players = new Dictionary<string, Player>();
-            MapEntities = new List<MapEntityPacket>();
+            Map = new Map();
+        }
 
-            InitMap();
+        public void Start() {
+
+            Listener.Start();
+            Console.WriteLine("<Server>: Server started.");
+
+            Map.InitMap();
+            new Thread(WaitForConnections).Start();
         }
 
         private void WaitForConnections() {
  
             while (true) {
-
+                Console.WriteLine("<Server>: Waiting for players...");
                 TcpClient connectedClient = Listener.AcceptTcpClient();
                 new Thread(() => SendMapEntities(connectedClient)).Start();
                 new Thread(() => ReceiveData(connectedClient)).Start();
             }
-        }
-
-        private void InitMap() {
-            for (int i = 1; i <= 100; i++) {
-                GenerateWorldEntity();
-            }
-        }
-
-        private void GenerateWorldEntity() {
-
-            int x = Rnd.Next(150, 10000);
-            int y = Rnd.Next(400, 2000);
-            MapEntityName entity = (MapEntityName)Rnd.Next(0, 5);
-
-            MapEntityPacket MapEntityPacket = new MapEntityPacket();
-            MapEntityPacket.X = x;
-            MapEntityPacket.Y = y;
-            MapEntityPacket.CurrentLocation = "Outside";
-            MapEntityPacket.IsTouchable = !entity.Equals("Tree");
-            MapEntityPacket.Name = entity.ToString();
-            MapEntityPacket.Direction = "Left";
-            MapEntities.Add(MapEntityPacket);
         }
 
         private void SendMapEntities(TcpClient client) {
@@ -66,12 +49,11 @@ namespace CastleBridge.Server {
                 try {
 
                     netStream = client.GetStream();
-                    bytes = Encoding.ASCII.GetBytes(MapEntities.Count + "|map_entities_count");
+                    bytes = Encoding.ASCII.GetBytes(Map.GetEntities().Count + "|map_entities_count");
                     netStream.Write(bytes, 0, bytes.Length);
 
 
-
-                    foreach (MapEntityPacket mapEntity in MapEntities) {
+                    foreach (MapEntityPacket mapEntity in Map.GetEntities()) {
 
                         netStream = client.GetStream();
                         bytes = ObjectToByteArray(mapEntity);
@@ -190,17 +172,5 @@ namespace CastleBridge.Server {
             }
 
         }
- 
-
-        public void Start() {
-
-            Listener.Start();
-            Console.WriteLine("Server started.");
-            Console.WriteLine("Waiting for players...");
-
-            WaitForConnections();
- 
-        }
-
     }
 }
