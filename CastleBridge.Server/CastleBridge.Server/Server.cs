@@ -27,8 +27,6 @@ namespace CastleBridge.Server {
 
             Listener.Start();
             Console.WriteLine("<Server>: Server started.");
-
-            Map.InitMap();
             new Thread(WaitForConnections).Start();
         }
 
@@ -53,12 +51,12 @@ namespace CastleBridge.Server {
                     netStream.Write(bytes, 0, bytes.Length);
 
 
-                    foreach (MapEntityPacket mapEntity in Map.GetEntities()) {
+                    foreach (KeyValuePair<string, MapEntityPacket> mapEntity in Map.GetEntities()) {
 
                         netStream = client.GetStream();
-                        bytes = ObjectToByteArray(mapEntity);
+                        bytes = ObjectToByteArray(mapEntity.Value);
                         netStream.Write(bytes, 0, bytes.Length);
-                        Console.WriteLine("<Server>: Sending " + mapEntity.Name + " to player..");
+                        Console.WriteLine("<Server>: Sending " + mapEntity.Value.Name + " to player..");
 
                         Thread.Sleep(ThreadSleep);
                     }
@@ -135,6 +133,17 @@ namespace CastleBridge.Server {
                         Console.WriteLine(e.Message);
 
                         string data = Encoding.ASCII.GetString(bytes).Split('\0')[0];
+                        
+                        if(data.IndexOf("Remove Entity") != -1) {
+                            string key = data.Split('_')[1];
+                            string playerName = data.Split('_')[2];
+                            if (Map.GetEntities().ContainsKey(key)) {
+                                Map.RemoveEntity(key);
+                                SendMapEntitiesChangesToOtherPlayers(key, playerName);
+                            }
+
+                        }
+                        
                         Console.WriteLine("<Client>: " + data);
 
                     }
@@ -145,6 +154,28 @@ namespace CastleBridge.Server {
                 }
 
                 Thread.Sleep(ThreadSleep);
+            }
+
+        }
+
+        private void SendMapEntitiesChangesToOtherPlayers(string entityKey, string playerName) {
+
+            foreach (KeyValuePair<string, Player> player in Players) {
+                try {
+
+                    if (player.Value.PlayerPacket.Name == playerName)
+                        continue;
+
+                    NetworkStream netStream = player.Value.Client.GetStream();
+                    byte[] bytes = Encoding.ASCII.GetBytes("Remove Entity_" + entityKey);
+                    netStream.Write(bytes, 0, bytes.Length);
+
+                }
+                catch (Exception e) {
+                    Console.WriteLine(e.Message);
+                }
+
+
             }
 
         }
@@ -160,8 +191,7 @@ namespace CastleBridge.Server {
                     NetworkStream netStream = player.Value.Client.GetStream();
                     byte[] bytes = ObjectToByteArray(Players[playerName].PlayerPacket);
                     netStream.Write(bytes, 0, bytes.Length);
-
-                    //Console.WriteLine("<Server>: Sending " + playerName + "'s data to other players..");
+ 
 
                 }
                 catch (Exception e) {
