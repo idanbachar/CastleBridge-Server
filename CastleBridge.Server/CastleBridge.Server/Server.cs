@@ -95,7 +95,7 @@ namespace CastleBridge.Server {
                     bytes = Encoding.ASCII.GetBytes("Completed Map Entities");
                     netStream.Write(bytes, 0, bytes.Length);
 
-                    Console.WriteLine("Completed sending map entities to player.");
+                    Console.WriteLine("<Server>: Completed sending map entities to player.");
                     break;
                 }
                 catch (Exception e) {
@@ -139,7 +139,7 @@ namespace CastleBridge.Server {
                                     //Add new player to the connected players's dictionary:
                                     Players.Add(playerPacket.Name, new Player(playerPacket, client));
 
-                                    Console.WriteLine(playerPacket.Name + " the " + playerPacket.CharacterName + " has joined to the " + playerPacket.TeamName + " team!");
+                                    Console.WriteLine("<Server>: " + playerPacket.Name + " the " + playerPacket.CharacterName + " has joined to the " + playerPacket.TeamName + " team!");
                                 }
                                 else { //If this is not the first time receving current player's data (connected before):
 
@@ -174,13 +174,13 @@ namespace CastleBridge.Server {
                                 //Remove entity from map:
                                 Map.RemoveEntity(key);
 
+                                Console.WriteLine("<Server>: entity has removed. there are " + Map.GetEntities().Count + " more entities.");
+
                                 //Sends entity removed update to other connected players by using current received (key, player's name):
                                 SendMapEntitiesChangesToOtherPlayers(key, playerName);
                             }
 
                         }
-
-                        Console.WriteLine("<Client>: " + data);
                     }
                 }
                 catch (Exception e) {

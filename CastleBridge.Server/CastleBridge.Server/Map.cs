@@ -32,8 +32,6 @@ namespace CastleBridge.Server {
             //Generate 100 world entities:
             for (int i = 1; i <= 100; i++)
                 GenerateWorldEntity();
-
-            Console.WriteLine("<Server>: Map entities loaded successfully.");
         }
 
         /// <summary>
