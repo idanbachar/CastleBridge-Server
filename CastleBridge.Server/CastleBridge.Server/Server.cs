@@ -12,10 +12,17 @@ using System.Net.Http.Headers;
 namespace CastleBridge.Server {
     public class Server {
 
-        private TcpListener Listener;
-        private Dictionary<string, Player> Players;
-        private const int ThreadSleep = 100;
-        private Map Map;
+        private TcpListener Listener; //Listener
+        private Dictionary<string, Player> Players; //Connected players
+        private const int ThreadSleep = 100; //Thread sleep time
+        private Map Map; //Map
+
+        /// <summary>
+        /// Receives ip, port
+        /// and creates a server
+        /// </summary>
+        /// <param name="ip"></param>
+        /// <param name="port"></param>
         public Server(string ip, int port) {
 
             Listener = new TcpListener(IPAddress.Parse(ip), port);
@@ -23,6 +30,9 @@ namespace CastleBridge.Server {
             Map = new Map();
         }
 
+        /// <summary>
+        /// Start listening for new connections
+        /// </summary>
         public void Start() {
 
             Listener.Start();
@@ -30,6 +40,12 @@ namespace CastleBridge.Server {
             new Thread(WaitForConnections).Start();
         }
 
+        /// <summary>
+        /// Waiting for connections thread
+        /// when player connects, two threads start to work: 
+        /// 1. Send map's entities to player
+        /// 2. Receive data from player
+        /// </summary>
         private void WaitForConnections() {
  
             while (true) {
@@ -40,35 +56,162 @@ namespace CastleBridge.Server {
             }
         }
 
+        /// <summary>
+        /// Sends map's entities into connected client
+        /// </summary>
+        /// <param name="client"></param>
         private void SendMapEntities(TcpClient client) {
+
+            //Run always:
             while (true) {
+
                 NetworkStream netStream = null;
                 byte[] bytes = new byte[1024];
+
+                //Try to send a string of command into array of bytes and send it to connected client:
                 try {
 
+                    //Sends total count of map's entities into client:
                     netStream = client.GetStream();
                     bytes = Encoding.ASCII.GetBytes(Map.GetEntities().Count + "|map_entities_count");
                     netStream.Write(bytes, 0, bytes.Length);
 
-
+                    //Run on each map's entities:
                     foreach (KeyValuePair<string, MapEntityPacket> mapEntity in Map.GetEntities()) {
 
+                        //Convert map entity packet's object into array of bytes and send it to server:
                         netStream = client.GetStream();
                         bytes = ObjectToByteArray(mapEntity.Value);
                         netStream.Write(bytes, 0, bytes.Length);
+
                         Console.WriteLine("<Server>: Sending " + mapEntity.Value.Name + " to player..");
 
+                        //Start thread sleep:
                         Thread.Sleep(ThreadSleep);
                     }
 
-
+                    //After all map's entities sent to the connected client, sends completed map entities command into client:
                     netStream = client.GetStream();
                     bytes = Encoding.ASCII.GetBytes("Completed Map Entities");
                     netStream.Write(bytes, 0, bytes.Length);
 
                     Console.WriteLine("Completed sending map entities to player.");
-
                     break;
+                }
+                catch (Exception e) {
+                    Console.WriteLine(e.Message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Receives data from client
+        /// </summary>
+        /// <param name="client"></param>
+        private void ReceiveData(TcpClient client) {
+
+            //Run always:
+            while (true) {
+
+                //Try to read stream data from connected client:
+                try {
+
+                    NetworkStream netStream = client.GetStream();
+                    byte[] bytes = new byte[1024];
+                    netStream.Read(bytes, 0, bytes.Length);
+                    object obj = null;
+
+                    //Try to convert received array of bytes data into packet's object:
+                    try {
+                        obj = ByteArrayToObject(bytes);
+
+                        //Checks if received obj is type of player packet:
+                        if (obj is PlayerPacket) {
+
+                            PlayerPacket playerPacket = obj as PlayerPacket;
+
+                            //Using lock function to avoid multi task crash:
+                            lock (Players) {
+
+                                //Checks if this is the first time of receiving current player's data (never connected before):
+                                if (!Players.ContainsKey(playerPacket.Name)) {
+
+                                    //Add new player to the connected players's dictionary:
+                                    Players.Add(playerPacket.Name, new Player(playerPacket, client));
+
+                                    Console.WriteLine(playerPacket.Name + " the " + playerPacket.CharacterName + " has joined to the " + playerPacket.TeamName + " team!");
+                                }
+                                else { //If this is not the first time receving current player's data (connected before):
+
+                                    //Sets all received player packet's vars into current player's vars in the players's dictionary:
+                                    Players[playerPacket.Name].PlayerPacket = playerPacket;
+                                }
+                            }
+
+                            //Sends current received player's data to other connected players by using current received player's name:
+                            SendPlayerDataToOtherPlayers(playerPacket.Name);
+                        }
+                    }
+                    //Checks if failed to convert received array of bytes into an object, because of the received data is string:
+                    catch (Exception e) {
+                        Console.WriteLine(e.Message);
+
+                        //Get data and convert it from array of bytes into string:
+                        string data = Encoding.ASCII.GetString(bytes).Split('\0')[0];
+
+                        //Checks if data contains 'Remove Entity..' command:
+                        if (data.IndexOf("Remove Entity") != -1) {
+
+                            //Get entity's key:
+                            string key = data.Split('_')[1];
+
+                            //Get player's name:
+                            string playerName = data.Split('_')[2];
+
+                            //Checks if exists entity with the received key in the dictionary:
+                            if (Map.GetEntities().ContainsKey(key)) {
+
+                                //Remove entity from map:
+                                Map.RemoveEntity(key);
+
+                                //Sends entity removed update to other connected players by using current received (key, player's name):
+                                SendMapEntitiesChangesToOtherPlayers(key, playerName);
+                            }
+
+                        }
+
+                        Console.WriteLine("<Client>: " + data);
+                    }
+                }
+                catch (Exception e) {
+                    Console.WriteLine(e.Message);
+                }
+
+                //Start thread sleep:
+                Thread.Sleep(ThreadSleep);
+            }
+        }
+
+        /// <summary>
+        /// Receives entity's key, player's name
+        /// and sends entity changes update to other connected players
+        /// </summary>
+        /// <param name="entityKey"></param>
+        /// <param name="playerName"></param>
+        private void SendMapEntitiesChangesToOtherPlayers(string entityKey, string playerName) {
+
+            //Run on each connected player:
+            foreach (KeyValuePair<string, Player> player in Players) {
+                try {
+
+                    //Checks if received player's name is equals to current player, if true then skip, else keep going:
+                    if (player.Value.PlayerPacket.Name == playerName)
+                        continue;
+
+                    //Sends entity changes update:
+                    NetworkStream netStream = player.Value.Client.GetStream();
+                    byte[] bytes = Encoding.ASCII.GetBytes("Remove Entity_" + entityKey);
+                    netStream.Write(bytes, 0, bytes.Length);
 
                 }
                 catch (Exception e) {
@@ -77,6 +220,40 @@ namespace CastleBridge.Server {
             }
         }
 
+        /// <summary>
+        /// Receives player's name
+        /// and sends player's data to other connected players
+        /// </summary>
+        /// <param name="playerName"></param>
+        private void SendPlayerDataToOtherPlayers(string playerName) {
+
+            //Run on each connected player:
+            foreach (KeyValuePair<string, Player> player in Players) {
+                try {
+
+                    //Checks if received player's name is equals to current player or current player is still downloading map's data, if true then skip, else keep going:
+                    if (player.Value.PlayerPacket.Name == playerName || !player.Value.PlayerPacket.IsAllMapEntitiesLoaded)
+                        continue;
+
+
+                    //Try to convert player packet's object into array of bytes and send it to client:
+                    NetworkStream netStream = player.Value.Client.GetStream();
+                    byte[] bytes = ObjectToByteArray(Players[playerName].PlayerPacket);
+                    netStream.Write(bytes, 0, bytes.Length);
+                }
+                catch (Exception e) {
+                    Console.WriteLine(e.Message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Receives an object
+        /// and returns it as array of bytes
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="obj"></param>
+        /// <returns></returns>
         private byte[] ObjectToByteArray<T>(T obj) {
             if (obj == null)
                 return null;
@@ -87,6 +264,12 @@ namespace CastleBridge.Server {
             }
         }
 
+        /// <summary>
+        /// Receives array of bytes
+        /// and returns it as an object
+        /// </summary>
+        /// <param name="arrBytes"></param>
+        /// <returns></returns>
         private object ByteArrayToObject(byte[] arrBytes) {
             MemoryStream memStream = new MemoryStream();
             BinaryFormatter binForm = new BinaryFormatter();
@@ -97,110 +280,6 @@ namespace CastleBridge.Server {
             object obj = (object)binForm.Deserialize(memStream);
 
             return obj;
-        }
-
-
-        private void ReceiveData(TcpClient client) {
- 
-            while (true) {
-
-                try {
-                    NetworkStream netStream = client.GetStream();
-                    byte[] bytes = new byte[1024];
-                    netStream.Read(bytes, 0, bytes.Length);
-                    object obj = null;
-
-                    try {
-                        obj = ByteArrayToObject(bytes);
-
-                        if (obj is PlayerPacket) {
-
-                            PlayerPacket playerPacket = obj as PlayerPacket;
-                            
-                            lock (Players) {
-                                if (!Players.ContainsKey(playerPacket.Name)) {
-                                    Players.Add(playerPacket.Name, new Player(playerPacket, client));
-                                    Console.WriteLine(playerPacket.Name + " the " + playerPacket.CharacterName + " has joined to the " + playerPacket.TeamName + " team!");
-                                }
-                                else {
-                                    Players[playerPacket.Name].PlayerPacket = playerPacket;
-                                }
-                            }
-                            SendPlayerDataToOtherPlayers(playerPacket.Name);
-                        }
-                    }
-                    catch(Exception e) {
-                        Console.WriteLine(e.Message);
-
-                        string data = Encoding.ASCII.GetString(bytes).Split('\0')[0];
-                        
-                        if(data.IndexOf("Remove Entity") != -1) {
-                            string key = data.Split('_')[1];
-                            string playerName = data.Split('_')[2];
-                            if (Map.GetEntities().ContainsKey(key)) {
-                                Map.RemoveEntity(key);
-                                SendMapEntitiesChangesToOtherPlayers(key, playerName);
-                            }
-
-                        }
-                        
-                        Console.WriteLine("<Client>: " + data);
-
-                    }
-
-                }
-                catch(Exception e) {
-                    Console.WriteLine(e.Message);
-                }
-
-                Thread.Sleep(ThreadSleep);
-            }
-
-        }
-
-        private void SendMapEntitiesChangesToOtherPlayers(string entityKey, string playerName) {
-
-            foreach (KeyValuePair<string, Player> player in Players) {
-                try {
-
-                    if (player.Value.PlayerPacket.Name == playerName)
-                        continue;
-
-                    NetworkStream netStream = player.Value.Client.GetStream();
-                    byte[] bytes = Encoding.ASCII.GetBytes("Remove Entity_" + entityKey);
-                    netStream.Write(bytes, 0, bytes.Length);
-
-                }
-                catch (Exception e) {
-                    Console.WriteLine(e.Message);
-                }
-
-
-            }
-
-        }
-
-        private void SendPlayerDataToOtherPlayers(string playerName) {
- 
-            foreach (KeyValuePair<string, Player> player in Players) {
-                try {
-
-                    if (player.Value.PlayerPacket.Name == playerName || !player.Value.PlayerPacket.IsAllMapEntitiesLoaded)
-                        continue;
-
-                    NetworkStream netStream = player.Value.Client.GetStream();
-                    byte[] bytes = ObjectToByteArray(Players[playerName].PlayerPacket);
-                    netStream.Write(bytes, 0, bytes.Length);
- 
-
-                }
-                catch (Exception e) {
-                    Console.WriteLine(e.Message);
-                }
-
-
-            }
-
         }
     }
 }

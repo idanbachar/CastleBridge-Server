@@ -6,31 +6,39 @@ using System.Text;
 namespace CastleBridge.Server {
     public class Map {
 
-        private Dictionary<string, MapEntityPacket> Entities;
+        private Dictionary<string, MapEntityPacket> Entities; //Map's entities
         private Random Rnd;
-        private int Width;
-        private int Height;
-        private int TotalItemsCounter;
+        private int Width; //Map's width
+        private int Height; //Map's height
+        private int TotalItemsCounter; //Map's total items counter
 
+        /// <summary>
+        /// Creates a map
+        /// </summary>
         public Map() {
+
             Entities = new Dictionary<string, MapEntityPacket>();
             Rnd = new Random();
             Width = 10000;
             Height = 2000;
             TotalItemsCounter = 0;
 
+            //Initializes map:
             InitMap();
         }
 
         private void InitMap() {
 
-            for (int i = 1; i <= 100; i++) {
+            //Generate 100 world entities:
+            for (int i = 1; i <= 100; i++)
                 GenerateWorldEntity();
-            }
 
             Console.WriteLine("<Server>: Map entities loaded successfully.");
         }
 
+        /// <summary>
+        /// Generates randomized world entity
+        /// </summary>
         private void GenerateWorldEntity() {
 
             TotalItemsCounter++;
@@ -56,15 +64,24 @@ namespace CastleBridge.Server {
         }
 
 
+        /// <summary>
+        /// Receives entity's key and removes it from dictionary
+        /// </summary>
+        /// <param name="key"></param>
         public void RemoveEntity(string key) {
-            if (Entities.ContainsKey(key)) {
 
+            //Remove entity only if entities dictionary contains received key:
+            if (Entities.ContainsKey(key)) {
                 lock (Entities) {
                     Entities.Remove(key);
                 }
             }
         }
 
+        /// <summary>
+        /// Get entities
+        /// </summary>
+        /// <returns></returns>
         public Dictionary<string, MapEntityPacket> GetEntities() {
             return Entities;
         }
