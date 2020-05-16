@@ -232,6 +232,13 @@ namespace CastleBridge.Server {
             }
         }
 
+        /// <summary>
+        /// Receives diamond's key, diamond's team, player's name
+        /// and sends diamond changes update to other connected players
+        /// </summary>
+        /// <param name="diamondKey"></param>
+        /// <param name="team"></param>
+        /// <param name="playerName"></param>
         private void SendDiamondsChangesToOtherPlayers(string diamondKey, string team, string playerName) {
 
             //Run on each connected player:
@@ -242,9 +249,12 @@ namespace CastleBridge.Server {
                     if (player.Value.PlayerPacket.Name == playerName)
                         continue;
 
-                    //Sends entity changes update:
+                    //Get diamond by received parameters:
+                    DiamondPacket diamond = Map.GetTeams()[team].GetDiamonds()[diamondKey];
+
+                    //Sends diamond changes update:
                     NetworkStream netStream = player.Value.Client.GetStream();
-                    byte[] bytes = Encoding.ASCII.GetBytes("Remove diamond#" + team + "#" + diamondKey);
+                    byte[] bytes = ObjectToByteArray(diamond);
                     netStream.Write(bytes, 0, bytes.Length);
 
                 }

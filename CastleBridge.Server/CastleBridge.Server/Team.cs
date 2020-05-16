@@ -39,6 +39,11 @@ namespace CastleBridge.Server {
             }
         }
 
+        /// <summary>
+        /// Receives diamond's key, diamond packet and applies in the diamonds dictionary with the key parameter 
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="diamond"></param>
         public void UpdateDiamond(string key, DiamondPacket diamond) {
 
             Diamonds[key] = diamond;
