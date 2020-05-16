@@ -151,6 +151,18 @@ namespace CastleBridge.Server {
                             //Sends current received player's data to other connected players by using current received player's name:
                             SendPlayerDataToOtherPlayers(playerPacket.Name);
                         }
+                        else if(obj is DiamondPacket) {
+
+                            DiamondPacket diamondPacket = obj as DiamondPacket;
+                            string diamondTeam = diamondPacket.TeamName;
+                            string diamondKey = diamondPacket.Key;
+                            
+                            if (Map.GetTeams()[diamondTeam].GetDiamonds().ContainsKey(diamondKey)) {
+                                Map.GetTeams()[diamondTeam].UpdateDiamond(diamondKey, diamondPacket);
+
+                                SendDiamondsChangesToOtherPlayers(diamondKey, diamondTeam, diamondPacket.Owner);
+                            }
+                        }
                     }
                     //Checks if failed to convert received array of bytes into an object, because of the received data is string:
                     catch (Exception e) {
@@ -211,6 +223,28 @@ namespace CastleBridge.Server {
                     //Sends entity changes update:
                     NetworkStream netStream = player.Value.Client.GetStream();
                     byte[] bytes = Encoding.ASCII.GetBytes("Remove Entity_" + entityKey);
+                    netStream.Write(bytes, 0, bytes.Length);
+
+                }
+                catch (Exception e) {
+                    Console.WriteLine(e.Message);
+                }
+            }
+        }
+
+        private void SendDiamondsChangesToOtherPlayers(string diamondKey, string team, string playerName) {
+
+            //Run on each connected player:
+            foreach (KeyValuePair<string, Player> player in Players) {
+                try {
+
+                    //Checks if received player's name is equals to current player, if true then skip, else keep going:
+                    if (player.Value.PlayerPacket.Name == playerName)
+                        continue;
+
+                    //Sends entity changes update:
+                    NetworkStream netStream = player.Value.Client.GetStream();
+                    byte[] bytes = Encoding.ASCII.GetBytes("Remove diamond#" + team + "#" + diamondKey);
                     netStream.Write(bytes, 0, bytes.Length);
 
                 }

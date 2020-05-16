@@ -7,6 +7,7 @@ namespace CastleBridge.Server {
     public class Map {
 
         private Dictionary<string, MapEntityPacket> Entities; //Map's entities
+        private Dictionary<string, Team> Teams; //Map's teams
         private Random Rnd;
         private int Width; //Map's width
         private int Height; //Map's height
@@ -18,6 +19,7 @@ namespace CastleBridge.Server {
         public Map() {
 
             Entities = new Dictionary<string, MapEntityPacket>();
+            Teams = new Dictionary<string, Team>();
             Rnd = new Random();
             Width = 10000;
             Height = 2000;
@@ -25,6 +27,9 @@ namespace CastleBridge.Server {
 
             //Initializes map:
             InitMap();
+
+            //Initializes teams:
+            InitTeams();
         }
 
         /// <summary>
@@ -35,6 +40,15 @@ namespace CastleBridge.Server {
             //Generate 100 world entities:
             for (int i = 1; i <= 100; i++)
                 GenerateWorldEntity();
+        }
+
+        /// <summary>
+        /// Initializes teams
+        /// </summary>
+        private void InitTeams() {
+
+            Teams.Add("Red", new Team("Red"));
+            Teams.Add("Yellow", new Team("Yellow"));
         }
 
         /// <summary>
@@ -85,6 +99,14 @@ namespace CastleBridge.Server {
         /// <returns></returns>
         public Dictionary<string, MapEntityPacket> GetEntities() {
             return Entities;
+        }
+
+        /// <summary>
+        /// Get teams
+        /// </summary>
+        /// <returns></returns>
+        public Dictionary<string, Team> GetTeams() {
+            return Teams;
         }
     }
 }
