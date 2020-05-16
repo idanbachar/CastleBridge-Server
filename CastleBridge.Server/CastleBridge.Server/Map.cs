@@ -27,6 +27,9 @@ namespace CastleBridge.Server {
             InitMap();
         }
 
+        /// <summary>
+        /// Initializes map
+        /// </summary>
         private void InitMap() {
 
             //Generate 100 world entities:
