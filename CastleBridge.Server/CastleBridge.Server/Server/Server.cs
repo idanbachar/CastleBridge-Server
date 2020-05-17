@@ -90,6 +90,18 @@ namespace CastleBridge.Server {
                         Thread.Sleep(ThreadSleep);
                     }
 
+                    //Send all diamonds to connected clients:
+                    foreach (KeyValuePair<string, Team> team in Map.GetTeams()) {
+                        foreach (KeyValuePair<string, DiamondPacket> diamond in team.Value.GetDiamonds()) {
+
+                            //Convert diamond packet's object into array of bytes and send it to client:
+                            bytes = ObjectToByteArray(diamond.Value);
+                            netStream.Write(bytes, 0, bytes.Length);
+
+                            Thread.Sleep(ThreadSleep);
+                        }
+                    }
+
                     //After all map's entities sent to the connected client, sends completed map entities command into client:
                     netStream = client.GetStream();
                     bytes = Encoding.ASCII.GetBytes("Completed Map Entities");
@@ -156,7 +168,10 @@ namespace CastleBridge.Server {
                             DiamondPacket diamondPacket = obj as DiamondPacket;
                             string diamondTeam = diamondPacket.TeamName;
                             string diamondKey = diamondPacket.Key;
-                            
+                            string diamondOwner = diamondPacket.Owner;
+
+                            Console.WriteLine("<Server>: Received " + diamondKey + " data from " + diamondOwner);
+
                             if (Map.GetTeams()[diamondTeam].GetDiamonds().ContainsKey(diamondKey)) {
                                 Map.GetTeams()[diamondTeam].UpdateDiamond(diamondKey, diamondPacket);
 

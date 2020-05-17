@@ -34,7 +34,7 @@ namespace CastleBridge.Server {
 
             for (int i = 1; i <= 3; i++) {
                 string key = "diamond#" + TeamName + "#" + i;
-                DiamondPacket diamond = new DiamondPacket(100, 400 + (i * 100), TeamName, key);
+                DiamondPacket diamond = new DiamondPacket(100, 350 + (i * 100), TeamName, key);
                 AddDiamond(key, diamond);
             }
         }
@@ -46,7 +46,9 @@ namespace CastleBridge.Server {
         /// <param name="diamond"></param>
         public void UpdateDiamond(string key, DiamondPacket diamond) {
 
-            Diamonds[key] = diamond;
+            lock (Diamonds) {
+                Diamonds[key] = diamond;
+            }
         }
 
         /// <summary>
